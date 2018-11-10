@@ -17,6 +17,7 @@
 #import <AsyncDisplayKit/ASCellNode+Internal.h>
 
 #import <objc/runtime.h>
+#include <atring>
 
 #import <AsyncDisplayKit/_ASAsyncTransaction.h>
 #import <AsyncDisplayKit/_ASAsyncTransactionContainer+Private.h>
