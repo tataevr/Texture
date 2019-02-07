@@ -2,23 +2,30 @@
 //  ASVideoNode.mm
 //  Texture
 //
-//  Copyright (c) Facebook, Inc. and its affiliates.  All rights reserved.
-//  Changes after 4/13/2017 are: Copyright (c) Pinterest, Inc.  All rights reserved.
-//  Licensed under Apache 2.0: http://www.apache.org/licenses/LICENSE-2.0
+//  Copyright (c) 2014-present, Facebook, Inc.  All rights reserved.
+//  This source code is licensed under the BSD-style license found in the
+//  LICENSE file in the /ASDK-Licenses directory of this source tree. An additional
+//  grant of patent rights can be found in the PATENTS file in the same directory.
 //
-
-#import <AsyncDisplayKit/ASVideoNode.h>
-
-#if AS_USE_VIDEO
+//  Modifications to this file made after 4/13/2017 are: Copyright (c) 2017-present,
+//  Pinterest, Inc.  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
 
 #import <AVFoundation/AVFoundation.h>
 #import <AsyncDisplayKit/ASDisplayNode+FrameworkPrivate.h>
 #import <AsyncDisplayKit/ASDisplayNode+Subclasses.h>
-#import <AsyncDisplayKit/ASDisplayNodeInternal.h>
+#import <AsyncDisplayKit/ASVideoNode.h>
 #import <AsyncDisplayKit/ASEqualityHelpers.h>
 #import <AsyncDisplayKit/ASInternalHelpers.h>
 #import <AsyncDisplayKit/ASDisplayNodeExtras.h>
 #import <AsyncDisplayKit/ASThread.h>
+//#import "OPME-Swift.h"
+
+#import "ASVideoNode.h"
 
 static BOOL ASAssetIsEqual(AVAsset *asset1, AVAsset *asset2) {
   return ASObjectIsEqual(asset1, asset2)
@@ -132,6 +139,7 @@ static NSString * const kRate = @"rate";
 
   AVPlayerItem *playerItem = nil;
   if (_assetURL != nil) {
+      
     playerItem = [[AVPlayerItem alloc] initWithURL:_assetURL];
     _asset = [playerItem asset];
   } else {
@@ -179,6 +187,24 @@ static NSString * const kRate = @"rate";
   if (self.image == nil && self.URL == nil) {
     [self generatePlaceholderImage];
   }
+}
+
+- (void)playCachingItem:(AVPlayerItem *)item {
+    [self setCurrentItem:item];
+    
+    if (_player != nil) {
+        [_player replaceCurrentItemWithPlayerItem:item];
+    } else {
+        self.player = [AVPlayer playerWithPlayerItem:item];
+    }
+    
+    if (_delegateFlags.delegateVideoNodeDidSetCurrentItem) {
+        [self.delegate videoNode:self didSetCurrentItem:item];
+    }
+    
+    if (self.image == nil && self.URL == nil) {
+        [self generatePlaceholderImage];
+    }
 }
 
 - (void)addPlayerItemObservers:(AVPlayerItem *)playerItem
@@ -326,7 +352,7 @@ static NSString * const kRate = @"rate";
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
-  ASDN::UniqueLock l(__instanceLock__);
+  ASLockScopeSelf();
 
   if (object == _currentPlayerItem) {
     if ([keyPath isEqualToString:kStatus]) {
@@ -334,9 +360,7 @@ static NSString * const kRate = @"rate";
         if (self.playerState != ASVideoNodePlayerStatePlaying) {
           self.playerState = ASVideoNodePlayerStateReadyToPlay;
           if (_shouldBePlaying && ASInterfaceStateIncludesVisible(self.interfaceState)) {
-            l.unlock();
             [self play];
-            l.lock();
           }
         }
         // If we don't yet have a placeholder image update it now that we should have data available for it
@@ -358,11 +382,7 @@ static NSString * const kRate = @"rate";
         if (self.playerState == ASVideoNodePlayerStateLoading && _delegateFlags.delegateVideoNodeDidRecoverFromStall) {
           [self.delegate videoNodeDidRecoverFromStall:self];
         }
-        
-        l.unlock();
         [self play]; // autoresume after buffer catches up
-        // NOTE: Early return without re-locking.
-        return;
       }
     } else if ([keyPath isEqualToString:kplaybackBufferEmpty]) {
       if (_shouldBePlaying && [change[NSKeyValueChangeNewKey] boolValue] == YES && ASInterfaceStateIncludesVisible(self.interfaceState)) {
@@ -380,8 +400,6 @@ static NSString * const kRate = @"rate";
       }
     }
   }
-  
-  // NOTE: Early return above.
 }
 
 - (void)tapped
@@ -859,5 +877,3 @@ static NSString * const kRate = @"rate";
 }
 
 @end
-
-#endif
